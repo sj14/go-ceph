@@ -20,11 +20,27 @@ func (suite *RadosGWTestSuite) TestLink() {
 		assert.Zero(suite.T(), len(user.Caps))
 	})
 
+	const initialBucketName = "initial-name"
+
 	suite.T().Run("create test bucket", func(t *testing.T) {
 		s3, err := newS3Agent(suite.accessKey, suite.secretKey, suite.endpoint, true)
 		assert.NoError(t, err)
 
-		err = s3.createBucket(suite.bucketTestName)
+		err = s3.createBucket(initialBucketName)
+		assert.NoError(t, err)
+	})
+
+	suite.T().Run("rename bucket", func(t *testing.T) {
+		err = co.LinkBucket(context.Background(), BucketLinkInput{
+			Bucket:        initialBucketName,
+			NewBucketName: suite.bucketTestName,
+		})
+		assert.NoError(suite.T(), err)
+
+		_, err := co.GetBucketInfo(context.Background(), Bucket{Bucket: initialBucketName})
+		assert.Error(t, ErrNoSuchBucket)
+
+		_, err = co.GetBucketInfo(context.Background(), Bucket{Bucket: suite.bucketTestName})
 		assert.NoError(t, err)
 	})
 
@@ -55,7 +71,7 @@ func (suite *RadosGWTestSuite) TestLink() {
 		bucket, err := co.GetBucketInfo(context.Background(), Bucket{Bucket: suite.bucketTestName})
 		assert.NoError(t, err)
 
-		err = co.UnlinkBucket(context.Background(), BucketLinkInput{
+		err = co.UnlinkBucket(context.Background(), BucketUnlinkInput{
 			Bucket: suite.bucketTestName,
 			UID:    bucket.Owner,
 		})
